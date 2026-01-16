@@ -17,7 +17,7 @@ set -ex
 
 # will prevent ray from buffering stdout/stderr
 export PYTHONBUFFERED=16
-export CUDA_VISIBLE_DEVICES=4,5,6,7
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NVLINK_COUNT=$(nvidia-smi | grep -o "NVLink" | wc -l)
 if [ "$NVLINK_COUNT" -gt 0 ]; then
     HAS_NVLINK=1
@@ -27,12 +27,15 @@ fi
 echo "HAS_NVLINK: $HAS_NVLINK (detected $NVLINK_COUNT NVLink references)"
 
 
-
+NUM_GPUS=4
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 
 CKPT_ARGS=(
    --hf-checkpoint "$BASE_DIR"/Qwen3-4B
-   --load "$BASE_DIR"/Qwen3-4B
    --ref-load "$BASE_DIR"/Qwen3-4B
+   --load "$BASE_DIR"/Qwen3-4B_slime
+   --save "$BASE_DIR"/Qwen3-4B_slime
+   --save-interval 1
 )
 
 ROLLOUT_ARGS=(
@@ -72,10 +75,10 @@ OPTIMIZER_ARGS=(
 )
 
 WANDB_ARGS=(
-   --use-wandb
-   --wandb-project slime-dev
-   --wandb-group qwen3-4B-fsdp-1130-ref
-   --wandb-key ${WANDB_KEY}
+#   --use-wandb
+#   --wandb-project slime-dev
+#   --wandb-group qwen3-4B-fsdp-1130-ref
+#   --wandb-key ${WANDB_KEY}
 )
 
 SGLANG_ARGS=(
@@ -90,27 +93,32 @@ TRAIN_BACKEND_ARGS=(
    --train-backend fsdp
    --update-weight-buffer-size 536870912
    --gradient-checkpointing
-   --attn-implementation flash_attention_2
+   --attn-implementation flash_attention_3
    --train-env-vars '{"PYTORCH_CUDA_ALLOC_CONF":"expandable_segments:True"}'
 )
 
 PERF_ARGS=(
    --use-dynamic-batch-size
-   --max-tokens-per-gpu 9216
+   --max-tokens-per-gpu 3216
+)
+
+CUSTOM_ARGS=(
+   --custom-generate-function-path generate_with_aigise.generate
+#   --custom-rm-path generate_with_aigise.reward_func
 )
 
 MISC_ARGS=(
    --actor-num-nodes 1
-   --actor-num-gpus-per-node 4
+   --actor-num-gpus-per-node ${NUM_GPUS}
    --colocate
    --use-fault-tolerance
    --dump-details "$BASE_DIR"/qwen3-4B-fsdp-1130-ref/dump_details
    # --fsdp-cpu-offload
 )
 
-# launch the master node of ray in container - 8 GPUs for training
+# launch the master node of ray in container - 4 GPUs for training
 export MASTER_ADDR=${MASTER_ADDR:-"127.0.0.1"}
-ray start --head --node-ip-address ${MASTER_ADDR} --num-gpus 8 --disable-usage-stats
+ray start --head --node-ip-address ${MASTER_ADDR} --num-gpus ${NUM_GPUS} --disable-usage-stats
 
 
 RUNTIME_ENV_JSON="{
@@ -132,7 +140,8 @@ ray job submit --address="http://127.0.0.1:8265" \
    ${SGLANG_ARGS[@]} \
    ${TRAIN_BACKEND_ARGS[@]} \
    ${PERF_ARGS[@]} \
-   ${MISC_ARGS[@]}
+   ${MISC_ARGS[@]} \
+   ${CUSTOM_ARGS[@]}
 
 
 

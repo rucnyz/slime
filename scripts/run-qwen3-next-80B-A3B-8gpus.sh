@@ -54,7 +54,7 @@ ROLLOUT_ARGS=(
    --rm-type deepscaler
    --num-rollout 300
    --rollout-batch-size 16
-   --n-samples-per-prompt 4
+   --n-samples-per-prompt 6
    --rollout-max-response-len 8192
    --rollout-temperature 0.8
 
@@ -84,7 +84,7 @@ PERF_ARGS=(
 
    # --micro-batch-size 1
    --use-dynamic-batch-size
-   --max-tokens-per-gpu 2048
+   --max-tokens-per-gpu 8192
 )
 
 GRPO_ARGS=(

@@ -8,7 +8,7 @@ Qwen3-next-80B-A3B-Instruct 即可。
 可以用如下完整方法把 huggingface checkpoint 转化为 torch_dist 格式：
 
 ```bash
-export BASE_FOLDER=./models/
+export BASE_FOLDER=/root/.cache
 # 下载模型权重 (Qwen3-Next-80B-A3B-Thinking)
 hf download Qwen/Qwen3-Next-80B-A3B-Thinking --local-dir ${BASE_FOLDER}/Qwen3-Next-80B-A3B-Thinking
 ```

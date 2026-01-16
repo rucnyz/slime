@@ -33,6 +33,7 @@ docker pull slimerl/slime:latest
 # 启动容器
 docker run --rm --gpus all --ipc=host --shm-size=16g \
   --ulimit memlock=-1 --ulimit stack=67108864 \
+  --ulimit nofile=655360:655360 \
   -it slimerl/slime:latest /bin/bash
 ```
 
