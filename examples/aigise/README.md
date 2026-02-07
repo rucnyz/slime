@@ -8,7 +8,7 @@ Use the `zhuzilin/slime:latest` image:
 cd /root/
 git clone <aigise-repo-url> aigise
 cd aigise
-pip install -e . --no-deps
+pip install -e . --no-deps``
 ```
 
 ## Data Preparation
