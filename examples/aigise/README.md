@@ -1,22 +1,42 @@
 # AIgiSE
-This example shows slime training with AIgiSE as the agentic rollout environment. The agent runs multi-turn tool-calling trajectories for security vulnerability analysis, with LLM calls routed to slime sglang server.
+This example shows slime training with AIgiSE as the agentic rollout environment. The agent runs multi-turn tool-calling trajectories for security vulnerability analysis, with LLM calls routed to slime's sglang server.
 
 ## Environment Setup
-Use the `zhuzilin/slime:latest` image:
+
+Install AIgiSE inside the container:
 
 ```bash
-cd /root/
-git clone <aigise-repo-url> aigise
+cd /root
+git clone https://github.com/AIgiSE/AIgiSE aigise
 cd aigise
-pip install -e . --no-deps``
+pip install -e .
+```
+
+Install slime (already mounted at `/root/slime` via docker-compose volume):
+
+```bash
+cd /root/slime
+pip install -e .
 ```
 
 ## Data Preparation
-Generate mock task data:
 
 ```bash
 cd /root/slime/examples/aigise
-python aigise_mock.py --output_dir /root/aigise_data --output_filename mock_tasks.jsonl
+
+# Mock benchmark (no Docker/sandbox dependencies, for testing)
+python aigise_mock.py \
+    --local_dir /root/aigise_data \
+    --dataset_path /root/aigise/src/aigise/evaluations/mock_debug/mock_test_dataset.json \
+    --output_filename mock_tasks.jsonl
+
+# SeCodePLT (vulnerability detection benchmark)
+python aigise_mock.py \
+    --local_dir /root/aigise_data \
+    --dataset_path aigise/secodeplt \
+    --dataset_split train \
+    --task_subset_file /root/aigise/src/aigise/evaluations/secodeplt/metadata/successful_task_list.txt \
+    --output_filename secodeplt_tasks.jsonl
 ```
 
 ## Model Preparation
@@ -38,22 +58,29 @@ PYTHONPATH=/root/Megatron-LM python tools/convert_hf_to_torch_dist.py \
 
 ```bash
 cd /root/slime
-bash examples/aigise/run_direct.sh
+CUDA_VISIBLE_DEVICES=2,3 bash examples/aigise/run_qwen3_4B.sh
 ```
 
-Select GPUs via environment variable (defaults to 2,3):
+For SeCodePLT training:
 ```bash
-CUDA_VISIBLE_DEVICES=4,5 bash examples/aigise/run_direct.sh
+AIGISE_AGENT_NAME=vul_agent_static_tools AIGISE_BENCHMARK_NAME=secodeplt \
+    CUDA_VISIBLE_DEVICES=2,3 bash examples/aigise/run_qwen3_4B.sh
 ```
 
 ## Configuration
-- Agent: set `AIGISE_AGENT_NAME` env var (default: `mock_rl_agent`)
-- Benchmark: set `AIGISE_BENCHMARK_NAME` env var (default: `mock_debug`)
-- Checkpoint paths: edit `run_direct.sh`
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CUDA_VISIBLE_DEVICES` | `2,3` | GPUs to use |
+| `AIGISE_AGENT_NAME` | `mock_rl_agent` | Agent directory under `aigise/examples/agents/` |
+| `AIGISE_BENCHMARK_NAME` | `mock_debug` | Benchmark name in `aigise/evaluations/` |
+| `AIGISE_SRC` | `/root/aigise/src` | Path to AIgiSE source |
+
+Checkpoint and training hyperparameters: edit `run_qwen3_4B.sh` directly.
 
 ## Files
 - `generate_with_aigise.py` — slime custom generate function (rollout entry point)
-- `aigise_mock.py` — mock data generator
-- `run_direct.sh` — training launch script
+- `aigise_mock.py` — dataset to slime JSONL converter
+- `run_direct.sh` — training launch script (ray start + python3 train.py)
 - `run_qwen3_4B.sh` — alternative launch via ray job submit
 - `test_slime_llm.py` — unit tests for SlimeLlm

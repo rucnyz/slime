@@ -1,9 +1,10 @@
 #!/bin/bash
-# Direct run: bypasses ray job submit (which is broken on this machine)
+# Direct run: runs train.py directly (alternative to ray job submit via run_qwen3_4B.sh)
 # Usage: bash /root/slime/examples/aigise/run_direct.sh
 
 set -ex
 
+ulimit -n 65536
 export PYTHONBUFFERED=16
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-2,3}"
 export CUDA_DEVICE_MAX_CONNECTIONS=1
