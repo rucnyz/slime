@@ -23,11 +23,29 @@ import logging
 import os
 from typing import Any
 
+# ---------------------------------------------------------------------------
+# Debug logging setup — MUST run before importing aigise (which calls
+# setup_aigise_logging() on import) and before slime's configure_logger()
+# which uses force=True and would override our settings.
+#
+# Set AIGISE_LOG_LEVEL=DEBUG in the shell or RUNTIME_ENV_JSON to enable.
+# ---------------------------------------------------------------------------
+_aigise_log_level = os.environ.get("AIGISE_LOG_LEVEL", "INFO").upper()
+_log_level = getattr(logging, _aigise_log_level, logging.INFO)
+
+logging.basicConfig(
+    level=_log_level,
+    format="[%(asctime)s] %(filename)s:%(lineno)d - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    force=True,
+)
+
 from aigise.rl_integration import create as aigise_create
 
 from slime.utils.types import Sample
 
 logger = logging.getLogger(__name__)
+logger.info(f"AIgiSE log level: {_aigise_log_level}")
 
 # ---------------------------------------------------------------------------
 # Configuration — edit these for your setup
