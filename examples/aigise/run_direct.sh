@@ -4,7 +4,7 @@
 
 set -ex
 
-ulimit -n 65536
+ulimit -n 655360
 export PYTHONBUFFERED=16
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 echo "Using GPUs: $CUDA_VISIBLE_DEVICES"

@@ -8,7 +8,7 @@ sleep 2
 
 set -ex
 
-ulimit -n 65536
+ulimit -n 655360
 export PYTHONBUFFERED=16
 echo "Using GPUs: $CUDA_VISIBLE_DEVICES"
 
