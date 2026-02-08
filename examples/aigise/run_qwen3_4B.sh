@@ -10,7 +10,6 @@ set -ex
 
 ulimit -n 65536
 export PYTHONBUFFERED=16
-export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-2,3}"
 echo "Using GPUs: $CUDA_VISIBLE_DEVICES"
 
 NVLINK_COUNT=$(nvidia-smi topo -m 2>/dev/null | grep -o "NV[0-9][0-9]*" | wc -l)
