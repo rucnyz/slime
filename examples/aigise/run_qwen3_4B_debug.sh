@@ -17,6 +17,7 @@ echo "Using GPUs: $CUDA_VISIBLE_DEVICES"
 # DEBUG: Maximum log verbosity for all components
 # ---------------------------------------------------------------------------
 export AIGISE_LOG_LEVEL=DEBUG       # AIgiSE framework + evaluation logging
+export AIGISE_VERBOSE_INIT=1        # Print CodeQL/Joern sandbox init output
 export SLIME_LOG_LEVEL=DEBUG        # SLIME configure_logger()
 export NCCL_DEBUG=INFO              # NCCL collective communication
 export NCCL_DEBUG_SUBSYS=ALL        # All NCCL subsystems
@@ -25,6 +26,7 @@ export SGLANG_LOG_LEVEL=debug       # sglang engine logging
 export CUDA_LAUNCH_BLOCKING=0       # Keep async for perf; set 1 only for CUDA debug
 echo "=== DEBUG MODE ENABLED ==="
 echo "  AIGISE_LOG_LEVEL=$AIGISE_LOG_LEVEL"
+echo "  AIGISE_VERBOSE_INIT=$AIGISE_VERBOSE_INIT"
 echo "  SLIME_LOG_LEVEL=$SLIME_LOG_LEVEL"
 echo "  NCCL_DEBUG=$NCCL_DEBUG"
 echo "=========================="
@@ -155,6 +157,7 @@ RUNTIME_ENV_JSON="{
     \"PYTHONPATH\": \"/root/Megatron-LM/:${SCRIPT_DIR}:${AIGISE_SRC}\",
     \"CUDA_DEVICE_MAX_CONNECTIONS\": \"1\",
     \"AIGISE_LOG_LEVEL\": \"DEBUG\",
+    \"AIGISE_VERBOSE_INIT\": \"1\",
     \"SLIME_LOG_LEVEL\": \"DEBUG\",
     \"NCCL_DEBUG\": \"INFO\",
     \"NCCL_DEBUG_SUBSYS\": \"ALL\",
