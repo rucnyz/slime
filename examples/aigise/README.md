@@ -12,6 +12,15 @@ cd aigise
 pip install -e .
 ```
 
+Install CodeQL (required for SeCodePLT vulnerability detection):
+
+```bash
+cd /root/aigise/src/aigise/sandbox_scripts
+wget https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.18.4/codeql-bundle-linux64.tar.gz
+tar -xzf codeql-bundle-linux64.tar.gz codeql
+rm -f codeql-bundle-linux64.tar.gz
+```
+
 Install slime (already mounted at `/root/slime` via docker-compose volume):
 
 ```bash

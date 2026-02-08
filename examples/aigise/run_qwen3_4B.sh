@@ -22,6 +22,14 @@ source "${SCRIPT_DIR}/../../scripts/models/qwen3-4B-Instruct-2507.sh"
 export AIGISE_AGENT_NAME="${AIGISE_AGENT_NAME:-mock_rl_agent}"
 export AIGISE_BENCHMARK_NAME="${AIGISE_BENCHMARK_NAME:-mock_debug}"
 
+# Select data file based on benchmark
+if [ "$AIGISE_BENCHMARK_NAME" = "secodeplt" ]; then
+   AIGISE_DATA_FILE="${AIGISE_DATA_FILE:-/root/aigise_data/secodeplt_tasks.jsonl}"
+else
+   AIGISE_DATA_FILE="${AIGISE_DATA_FILE:-/root/aigise_data/mock_tasks.jsonl}"
+fi
+echo "Using data file: $AIGISE_DATA_FILE"
+
 CKPT_ARGS=(
    --hf-checkpoint /root/Qwen3-4B-Instruct-2507/
    --ref-load /root/Qwen3-4B-Instruct-2507_torch_dist/
@@ -31,7 +39,7 @@ CKPT_ARGS=(
 )
 
 ROLLOUT_ARGS=(
-   --prompt-data /root/aigise_data/mock_tasks.jsonl
+   --prompt-data "$AIGISE_DATA_FILE"
    --input-key index
    --rollout-shuffle
    --num-rollout 20
@@ -45,7 +53,7 @@ ROLLOUT_ARGS=(
 
 EVAL_ARGS=(
    --eval-interval 10
-   --eval-prompt-data mock-eval /root/aigise_data/mock_tasks.jsonl
+   --eval-prompt-data aigise-eval "$AIGISE_DATA_FILE"
    --n-samples-per-eval-prompt 1
    --eval-max-response-len 1024
    --eval-top-k 1
