@@ -18,6 +18,7 @@ echo "Using GPUs: $CUDA_VISIBLE_DEVICES"
 # ---------------------------------------------------------------------------
 export AIGISE_LOG_LEVEL=DEBUG       # AIgiSE framework + evaluation logging
 export AIGISE_VERBOSE_INIT=1        # Print CodeQL/Joern sandbox init output
+export AIGISE_MAX_CONCURRENT="${AIGISE_MAX_CONCURRENT:-4}"
 export SLIME_LOG_LEVEL=DEBUG        # SLIME configure_logger()
 export NCCL_DEBUG=INFO              # NCCL collective communication
 export NCCL_DEBUG_SUBSYS=ALL        # All NCCL subsystems
@@ -61,17 +62,18 @@ ROLLOUT_ARGS=(
    --prompt-data "$AIGISE_DATA_FILE"
    --input-key index
    --rollout-shuffle
-   --num-rollout 20
-   --rollout-batch-size 4
-   --n-samples-per-prompt 2
+   --num-rollout "${AIGISE_NUM_ROLLOUT:-4}"
+   --rollout-batch-size "${AIGISE_ROLLOUT_BATCH_SIZE:-2}"
+   --n-samples-per-prompt "${AIGISE_N_SAMPLES:-1}"
    --rollout-max-response-len 1024
    --rollout-temperature 1
-   --global-batch-size 8
+   --global-batch-size "${AIGISE_GLOBAL_BATCH_SIZE:-2}"
    --balance-data
 )
 
 EVAL_ARGS=(
-   --eval-interval 10
+   --skip-eval-before-train
+   --eval-interval "${AIGISE_EVAL_INTERVAL:-999}"
    --eval-prompt-data aigise-eval "$AIGISE_DATA_FILE"
    --n-samples-per-eval-prompt 1
    --eval-max-response-len 1024
@@ -138,8 +140,7 @@ rm -rf /root/shared/ray_temp 2>/dev/null
 
 ray start --head --node-ip-address ${MASTER_ADDR} --num-gpus ${NUM_GPUS} \
     --disable-usage-stats --dashboard-host=0.0.0.0 --dashboard-port=8265 \
-    --temp-dir /root/shared/ray_temp \
-    --logging-level=debug
+    --temp-dir /root/shared/ray_temp
 
 echo "Waiting for Ray dashboard..."
 for i in $(seq 1 60); do
@@ -152,12 +153,17 @@ done
 sleep 5
 
 AIGISE_SRC="${AIGISE_SRC:-/root/aigise/src}"
+AIGISE_WORKER_LOG="${AIGISE_WORKER_LOG:-/root/aigise_worker.log}"
+> "${AIGISE_WORKER_LOG}"
+
 RUNTIME_ENV_JSON="{
   \"env_vars\": {
     \"PYTHONPATH\": \"/root/Megatron-LM/:${SCRIPT_DIR}:${AIGISE_SRC}\",
     \"CUDA_DEVICE_MAX_CONNECTIONS\": \"1\",
     \"AIGISE_LOG_LEVEL\": \"DEBUG\",
     \"AIGISE_VERBOSE_INIT\": \"1\",
+    \"AIGISE_MAX_CONCURRENT\": \"${AIGISE_MAX_CONCURRENT}\",
+    \"AIGISE_WORKER_LOG\": \"${AIGISE_WORKER_LOG}\",
     \"SLIME_LOG_LEVEL\": \"DEBUG\",
     \"NCCL_DEBUG\": \"INFO\",
     \"NCCL_DEBUG_SUBSYS\": \"ALL\",
@@ -165,10 +171,13 @@ RUNTIME_ENV_JSON="{
   }
 }"
 
+AIGISE_TRAIN_LOG="${AIGISE_TRAIN_LOG:-/root/aigise_train.log}"
+
 echo "Submitting ray job from $(pwd)..."
-ray job submit --address="http://127.0.0.1:8265" \
+JOB_ID=$(ray job submit --address="http://127.0.0.1:8265" \
    --no-wait \
    --runtime-env-json="${RUNTIME_ENV_JSON}" \
+   --submission-id aigise-debug \
    -- python3 train.py \
    --actor-num-nodes 1 \
    --actor-num-gpus-per-node ${NUM_GPUS} \
@@ -184,11 +193,18 @@ ray job submit --address="http://127.0.0.1:8265" \
    ${EVAL_ARGS[@]} \
    ${SGLANG_ARGS[@]} \
    ${MISC_ARGS[@]} \
-   ${CUSTOM_ARGS[@]}
+   ${CUSTOM_ARGS[@]} 2>&1 | grep -oP 'raysubmit_\S+' | head -1)
+
+JOB_ID="${JOB_ID:-aigise-debug}"
 
 echo ""
 echo "============================================"
-echo "Job submitted (DEBUG MODE). Monitor with:"
-echo "  ray job list --address http://127.0.0.1:8265"
-echo "  ray job logs --address http://127.0.0.1:8265 <JOB_ID> --follow"
+echo "Job submitted (DEBUG MODE): ${JOB_ID}"
+echo "Driver log: ${AIGISE_TRAIN_LOG}"
+echo "Worker log: ${AIGISE_WORKER_LOG}"
+echo "  tail -f ${AIGISE_WORKER_LOG}   # AIgiSE evaluation logs"
+echo "  tail -f ${AIGISE_TRAIN_LOG}    # SLIME driver logs"
 echo "============================================"
+
+# Follow logs and tee to file for persistent access
+ray job logs --address="http://127.0.0.1:8265" "${JOB_ID}" --follow 2>&1 | tee "${AIGISE_TRAIN_LOG}"

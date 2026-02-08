@@ -19,6 +19,7 @@ Configuration:
     Edit AIGISE_CONFIGS below or override via environment variables.
 """
 
+import asyncio
 import logging
 import os
 from typing import Any
@@ -39,6 +40,22 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
     force=True,
 )
+
+# ---------------------------------------------------------------------------
+# Persistent file logging — Worker logs go to /dev/pts (tmux terminal) which
+# gets overwhelmed by Ray stats dumps.  Write AIgiSE logs to a file so they
+# survive regardless of terminal buffer state.
+# ---------------------------------------------------------------------------
+_aigise_worker_log = os.environ.get("AIGISE_WORKER_LOG", "/root/aigise_worker.log")
+_file_handler = logging.FileHandler(_aigise_worker_log, mode="a")
+_file_handler.setLevel(_log_level)
+_file_handler.setFormatter(
+    logging.Formatter(
+        "[%(asctime)s] %(name)s:%(filename)s:%(lineno)d - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+)
+logging.getLogger().addHandler(_file_handler)
 
 from aigise.rl_integration import create as aigise_create
 
@@ -63,6 +80,26 @@ AIGISE_CONFIGS = {
 # ---------------------------------------------------------------------------
 
 _client = None
+
+# ---------------------------------------------------------------------------
+# Concurrency limiter — SeCodePLT builds a unique ~4-5GB Docker image per
+# task.  When dozens of tasks launch simultaneously they all hit
+# ensure_docker_image() and the Docker daemon serialises the builds, causing
+# a deadlock-like stall.  Limiting concurrency keeps resource usage sane.
+#
+# Set AIGISE_MAX_CONCURRENT to control the limit (default 4).
+# ---------------------------------------------------------------------------
+_eval_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    """Return (and lazily create) the per-process concurrency semaphore."""
+    global _eval_semaphore
+    if _eval_semaphore is None:
+        max_concurrent = int(os.environ.get("AIGISE_MAX_CONCURRENT", "4"))
+        _eval_semaphore = asyncio.Semaphore(max_concurrent)
+        logger.info(f"AIgiSE concurrency limit: {max_concurrent}")
+    return _eval_semaphore
 
 
 def _get_client():
@@ -112,17 +149,19 @@ async def generate(
     assert not args.partial_rollout, "Partial rollout is not supported for AIgiSE interactions."
 
     task_index = sample.prompt
-    logger.info(f"Starting AIgiSE agent interaction for task {task_index}")
 
-    client = _get_client()
+    async with _get_semaphore():
+        logger.info(f"Starting AIgiSE agent interaction for task {task_index}")
 
-    with client.init_session() as session:
-        result_sample = await session.slime_generate(
-            args=args,
-            sample=sample,
-            sampling_params=sampling_params,
-        )
+        client = _get_client()
 
-    logger.info(f"Finished AIgiSE interaction for task {task_index}: status={result_sample.status}, tokens={len(result_sample.tokens) if result_sample.tokens else 0}, response_length={result_sample.response_length}")
+        with client.init_session() as session:
+            result_sample = await session.slime_generate(
+                args=args,
+                sample=sample,
+                sampling_params=sampling_params,
+            )
+
+        logger.info(f"Finished AIgiSE interaction for task {task_index}: status={result_sample.status}, tokens={len(result_sample.tokens) if result_sample.tokens else 0}, response_length={result_sample.response_length}")
 
     return result_sample
