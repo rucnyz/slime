@@ -16,20 +16,18 @@ echo "Using GPUs: $CUDA_VISIBLE_DEVICES"
 # ---------------------------------------------------------------------------
 # DEBUG: Maximum log verbosity for all components
 # ---------------------------------------------------------------------------
-export AIGISE_LOG_LEVEL=DEBUG       # AIgiSE framework + evaluation logging
-export AIGISE_VERBOSE_INIT=1        # Print CodeQL/Joern sandbox init output
+export AIGISE_LOG_LEVEL=DEBUG
+export AIGISE_VERBOSE_INIT=1
 export AIGISE_MAX_CONCURRENT="${AIGISE_MAX_CONCURRENT:-4}"
-export SLIME_LOG_LEVEL=DEBUG        # SLIME configure_logger()
-export NCCL_DEBUG=INFO              # NCCL collective communication
-export NCCL_DEBUG_SUBSYS=ALL        # All NCCL subsystems
-export RAY_LOG_TO_STDERR=1          # Ray logs to stderr (visible in ray job logs)
-export SGLANG_LOG_LEVEL=debug       # sglang engine logging
-export CUDA_LAUNCH_BLOCKING=0       # Keep async for perf; set 1 only for CUDA debug
+export SLIME_LOG_LEVEL=DEBUG
+export NCCL_DEBUG="${NCCL_DEBUG:-WARN}"
+export RAY_LOG_TO_STDERR="${RAY_LOG_TO_STDERR:-0}"
+export SGLANG_LOG_LEVEL="${SGLANG_LOG_LEVEL:-warning}"
+export CUDA_LAUNCH_BLOCKING=0
 echo "=== DEBUG MODE ENABLED ==="
 echo "  AIGISE_LOG_LEVEL=$AIGISE_LOG_LEVEL"
 echo "  AIGISE_VERBOSE_INIT=$AIGISE_VERBOSE_INIT"
 echo "  SLIME_LOG_LEVEL=$SLIME_LOG_LEVEL"
-echo "  NCCL_DEBUG=$NCCL_DEBUG"
 echo "=========================="
 
 NVLINK_COUNT=$(nvidia-smi topo -m 2>/dev/null | grep -o "NV[0-9][0-9]*" | wc -l)
@@ -131,7 +129,7 @@ CUSTOM_ARGS=(
 )
 
 export MASTER_ADDR=${MASTER_ADDR:-"127.0.0.1"}
-NUM_GPUS=2
+NUM_GPUS="${NUM_GPUS:-2}"
 
 # MUST be in /root/slime so train.py is found
 cd /root/slime
@@ -163,11 +161,11 @@ RUNTIME_ENV_JSON="{
     \"AIGISE_LOG_LEVEL\": \"DEBUG\",
     \"AIGISE_VERBOSE_INIT\": \"1\",
     \"AIGISE_MAX_CONCURRENT\": \"${AIGISE_MAX_CONCURRENT}\",
-    \"AIGISE_WORKER_LOG\": \"${AIGISE_WORKER_LOG}\",
-    \"SLIME_LOG_LEVEL\": \"DEBUG\",
-    \"NCCL_DEBUG\": \"INFO\",
-    \"NCCL_DEBUG_SUBSYS\": \"ALL\",
-    \"SGLANG_LOG_LEVEL\": \"debug\"
+    "AIGISE_WORKER_LOG": "${AIGISE_WORKER_LOG}",
+    "SLIME_LOG_LEVEL": "DEBUG",
+    "NCCL_DEBUG": "${NCCL_DEBUG}",
+    "RAY_LOG_TO_STDERR": "${RAY_LOG_TO_STDERR}",
+    "SGLANG_LOG_LEVEL": "${SGLANG_LOG_LEVEL}"
   }
 }"
 
@@ -193,7 +191,8 @@ JOB_ID=$(ray job submit --address="http://127.0.0.1:8265" \
    ${EVAL_ARGS[@]} \
    ${SGLANG_ARGS[@]} \
    ${MISC_ARGS[@]} \
-   ${CUSTOM_ARGS[@]} 2>&1 | grep -oP 'raysubmit_\S+' | head -1)
+   ${CUSTOM_ARGS[@]} \
+   ${EXTRA_TRAIN_ARGS:-} 2>&1 | grep -oP 'raysubmit_\S+' | head -1)
 
 JOB_ID="${JOB_ID:-aigise-debug}"
 
